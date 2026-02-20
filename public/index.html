@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>StudyPlanner</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+  <h1 class="text-center mb-4">StudyPlanner</h1>
+
+  <!-- Crear materia -->
+  <div class="card p-3 mb-4">
+    <h4>Agregar Materia</h4>
+    <input id="name" class="form-control mb-2" placeholder="Nombre materia">
+    <input id="goal" type="number" class="form-control mb-2" placeholder="Meta semanal horas">
+    <button class="btn btn-primary" onclick="addSubject()">Guardar</button>
+  </div>
+
+  <!-- Lista materias -->
+  <div class="card p-3">
+    <h4>Materias</h4>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:3000";
+
+/* Crear materia */
+function addSubject() {
+  const name = document.getElementById("name").value;
+  const goal = document.getElementById("goal").value;
+
+  if (!name || !goal) {
+    alert("Completa todos los campos");
+    return;
+  }
+
+  fetch(API + "/subjects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: name,
+      weeklyGoalHours: goal
+    })
+  })
+  .then(res => res.json())
+  .then(() => {
+    document.getElementById("name").value = "";
+    document.getElementById("goal").value = "";
+    loadSubjects();
+  });
+}
+
+/* Registrar horas */
+function addHours(id) {
+  const hours = prompt("¿Cuántas horas deseas agregar?");
+  if (!hours) return;
+
+  fetch(API + "/study-sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subjectId: id,
+      hours: hours,
+      date: new Date().toISOString().split("T")[0]
+    })
+  })
+  .then(res => res.json())
+  .then(() => loadSubjects());
+}
+
+/* Eliminar materia */
+function deleteSubject(id) {
+  if (!confirm("¿Seguro que quieres eliminar esta materia?")) return;
+
+  fetch(API + "/subjects/" + id, {
+    method: "DELETE"
+  })
+  .then(() => loadSubjects());
+}
+
+/* Cargar materias */
+function loadSubjects() {
+  fetch(API + "/subjects")
+    .then(res => res.json())
+    .then(data => {
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+
+      data.forEach(subject => {
+
+        let progress = (subject.totalHoursStudied / subject.weeklyGoalHours) * 100;
+        progress = progress > 100 ? 100 : progress;
+        const completed = progress >= 100;
+
+        list.innerHTML += `
+          <div class="card mb-3 p-3">
+            <h5>${subject.name}</h5>
+            <p>${subject.totalHoursStudied} / ${subject.weeklyGoalHours} horas</p>
+
+            <div class="progress mb-2">
+              <div class="progress-bar ${completed ? 'bg-success' : ''}" 
+                   role="progressbar" 
+                   style="width: ${progress}%">
+                   ${progress.toFixed(0)}%
+              </div>
+            </div>
+
+            ${completed ? 
+              '<span class="text-success fw-bold">Meta completada 🎉</span>' 
+              : ''}
+
+            <div class="mt-2">
+              <button class="btn btn-sm btn-success" onclick="addHours(${subject.id})">
+                Agregar horas
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="deleteSubject(${subject.id})">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        `;
+      });
+    });
+}
+
+loadSubjects();
+</script>
+
+</body>
+</html>
